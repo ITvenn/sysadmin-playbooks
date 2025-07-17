@@ -82,7 +82,7 @@ ssh admin@192.168.1.10
         state: present
         update_cache: yes
 
-    - name: S'assurer que le service SSH est activé et démarré
+    - name: Assure que le service SSH est activé et démarré
       systemd:
         name: ssh
         enabled: yes
