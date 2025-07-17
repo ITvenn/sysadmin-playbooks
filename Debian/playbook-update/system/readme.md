@@ -83,7 +83,3 @@ ansible-playbook -i inventory.ini update_debian.yml -l serveurapache
 
 ---
 
-## 📞 Contact
-
-Pour toute question, contactez l'administrateur système ou réseau en charge de l'automatisation.
-
