@@ -1,0 +1,32 @@
+---
+- name: Installation et configuration de SSH
+  hosts: undefined_group
+  become: yes
+  tasks:
+
+    - name: Installer le paquet openssh-server
+      apt:
+        name: openssh-server
+        state: present
+        update_cache: yes
+
+    - name: Assurer que le service SSH est activé et démarré
+      systemd:
+        name: ssh
+        enabled: yes
+        state: started
+
+    - name: Déployer un fichier de configuration sshd personnalisé
+      copy:
+        src: sshd_config
+        dest: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Redémarrer SSH
+
+  handlers:
+    - name: Redémarrer SSH
+      systemd:
+        name: ssh
+        state: restarted

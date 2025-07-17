@@ -36,7 +36,7 @@ serveur2 ansible_host=192.168.1.11 ansible_user=admin
 
 2. Exécuter le playbook
 ```sh
-ansible-playbook -i host.ini playbook.yml
+ansible-playbook -i host.ini playbook.yml -l ssh_targets
 ```
 > Si vos hôtes demandent un mot de passe sudo, ajoutez l'option : --ask-become-pass
 
@@ -72,7 +72,7 @@ ssh admin@192.168.1.10
 ---
 ```sh
 - name: Installation et configuration de SSH
-  hosts: all
+  hosts: undefined_group
   become: yes
   tasks:
 
