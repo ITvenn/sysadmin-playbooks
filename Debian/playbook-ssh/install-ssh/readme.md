@@ -7,11 +7,11 @@ Ce playbook Ansible permet d'installer, configurer et sécuriser le service Open
 ## Structure des fichiers attendue
 ```sh
 project/
-├── host.ini
+├── inventory.ini
 ├── playbook.yml
 └── sshd_config
 ```
-- host.ini : Fichier d’inventaire Ansible contenant les hôtes cibles.
+- inventory.ini : Fichier d’inventaire Ansible contenant les hôtes cibles.
 - playbook.yml : Le playbook principal.
 - sshd_config : Fichier de configuration SSH personnalisé à déployer.
 
@@ -27,7 +27,7 @@ project/
 
 ## Utilisation
 
-1. Définir les hôtes dans host.ini
+1. Définir les hôtes dans inventory.ini
 ```sh
 [ssh_targets]
 serveur1 ansible_host=192.168.1.10 ansible_user=admin
@@ -36,7 +36,7 @@ serveur2 ansible_host=192.168.1.11 ansible_user=admin
 
 2. Exécuter le playbook
 ```sh
-ansible-playbook -i host.ini playbook.yml -l ssh_targets
+ansible-playbook -i inventory.ini playbook.yml -l ssh_targets
 ```
 > Si vos hôtes demandent un mot de passe sudo, ajoutez l'option : --ask-become-pass
 
@@ -105,7 +105,7 @@ ssh admin@192.168.1.10
 ```
 ---
 
-## Exemple minimal de host.ini
+## Exemple minimal de inventory.ini
 ```sh
 [ssh_targets]
 serveur1 ansible_host=192.168.1.10 ansible_user=admin

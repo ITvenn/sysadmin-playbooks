@@ -42,15 +42,10 @@ project/
 
 3. Exécutez le playbook :
 
-```bash
-ansible-playbook -i inventory.ini update_sshd_config.yml
+```sh
+ansible-playbook -i inventory.ini playbook.yml -l ssh_targets
 ```
-
-Pour cibler un groupe spécifique, ajoutez l'option `-l` :
-
-```bash
-ansible-playbook -i inventory.ini update_sshd_config.yml -l serveurapache
-```
+> Si vos hôtes demandent un mot de passe sudo, ajoutez l'option : --ask-become-pass
 
 ---
 
@@ -59,7 +54,7 @@ ansible-playbook -i inventory.ini update_sshd_config.yml -l serveurapache
 ```yaml
 ---
 - name: Déployer la configuration sshd personnalisée
-  hosts: all
+  hosts: undefined_group
   become: yes
   tasks:
     - name: Copier le fichier sshd_config personnalisé
