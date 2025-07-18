@@ -1,0 +1,17 @@
+
+---
+- name: Copier le fichier sur les Raspberry Pi
+  hosts: raspberries
+  become: yes
+  tasks:
+    - name: Copier le fichier
+      copy:
+        src: /etc/xdg/openbox/autostart
+        dest: /etc/xdg/openbox/autostart
+
+- name: Redémarrer les Rapsberry Pi
+  hosts: raspberries
+  become: yes
+  tasks:
+  - name: Rdémarrer les Rapsberry Pi
+    command: reboot
