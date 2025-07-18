@@ -45,11 +45,7 @@ Certaines variables doivent être spécifiées au lancement du playbook :
 ## 📦 Lancement du playbook
 
 ```bash
-ansible-playbook install_glpi.yml -i <target>, \
-  -e glpi_version=10.0.14 \
-  -e ip_server=192.168.1.10 \
-  -e mysql_root_pass='SuperSecret42' \
-  -e install_php_ldap=true
+ansible-playbook -i inventory.ini install_glpi.yml -l glpi_servers
 ```
 Remplacez <target> par le nom ou l’adresse IP de votre serveur cible. Le , à la fin est obligatoire si vous utilisez un inventaire en ligne de commande.
 
@@ -79,10 +75,6 @@ L’interface GLPI sera accessible à l’adresse :
 Identifiants par défaut : glpi / glpi
 ```
 
-## 🛡️ Sécurité
-Le script supprime automatiquement le fichier install.php après installation
-
-Le mot de passe root MySQL est défini via Ansible
 
 ## 📝 Auteur
 HAMEL Vincent
