@@ -1,0 +1,55 @@
+---
+- name: Mise à jour automatique de Graylog
+  hosts: graylog_servers
+  become: yes
+  vars_prompt:
+    - name: graylog_version
+      prompt: "Entrez la version de Graylog à installer (ex: 5.2)"
+      private: no
+
+  tasks:
+    - name: Confirmer la mise à jour
+      pause:
+        prompt: "Voulez-vous vraiment installer Graylog version {{ graylog_version }} ? (o/n)"
+      register: confirmation
+
+    - name: Vérifier la réponse de confirmation
+      fail:
+        msg: "Mise à jour annulée par l'utilisateur."
+      when: confirmation.user_input != "o"
+
+    - name: Arrêter le service Graylog
+      systemd:
+        name: graylog-server
+        state: stopped
+
+    - name: Télécharger le paquet repository Graylog
+      get_url:
+        url: "https://packages.graylog2.org/repo/packages/graylog-{{ graylog_version }}-repository_latest.deb"
+        dest: "/tmp/graylog-{{ graylog_version }}-repository_latest.deb"
+
+    - name: Installer le paquet repository
+      apt:
+        deb: "/tmp/graylog-{{ graylog_version }}-repository_latest.deb"
+
+    - name: Mettre à jour les dépôts APT
+      apt:
+        update_cache: yes
+
+    - name: Installer ou mettre à jour Graylog
+      apt:
+        name: graylog-server
+        state: latest
+
+    - name: Supprimer le paquet repository
+      file:
+        path: "/tmp/graylog-{{ graylog_version }}-repository_latest.deb"
+        state: absent
+
+    - name: Marquer graylog-server comme "hold"
+      command: apt-mark hold graylog-server
+
+    - name: Redémarrer le service Graylog
+      systemd:
+        name: graylog-server
+        state: restarted
