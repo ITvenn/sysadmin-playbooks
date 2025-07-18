@@ -1,0 +1,118 @@
+---
+- name: Mise à jour automatique de GLPI
+  hosts: glpi_servers
+  become: yes
+  vars:
+    glpi_version: ""     # À définir via extra-vars
+    db_name: ""          # À définir via extra-vars
+    db_password: ""      # À définir via extra-vars
+    web_root: /var/www/html
+    glpi_dir: /var/www/html/glpi
+    backup_dir: /tmp
+
+  tasks:
+
+    - name: Vérifier l'absence du dossier config dans glpi (sécurité)
+      stat:
+        path: "{{ glpi_dir }}/config"
+      register: config_dir
+
+    - name: Arrêter si config existe
+      fail:
+        msg: "Le répertoire {{ glpi_dir }}/config existe. Arrêt pour sécurité."
+      when: config_dir.stat.exists
+
+    - name: Vérifier l'absence de /var/www/glpi
+      stat:
+        path: /var/www/glpi
+      register: old_path
+
+    - name: Arrêter si /var/www/glpi existe
+      fail:
+        msg: "/var/www/glpi existe. Arrêt pour sécurité."
+      when: old_path.stat.exists
+
+    - name: Sauvegarder la base de données GLPI
+      command: >
+        mysqldump -u root -p{{ db_password }} --databases {{ db_name }}
+      register: db_dump
+      changed_when: false
+      args:
+        creates: "{{ backup_dir }}/backup_{{ db_name }}.sql"
+
+    - name: Enregistrer le dump dans /tmp
+      copy:
+        content: "{{ db_dump.stdout }}"
+        dest: "{{ backup_dir }}/backup_{{ db_name }}.sql"
+
+    - name: Sauvegarder le répertoire plugins
+      command: mv {{ glpi_dir }}/plugins {{ backup_dir }}/
+
+    - name: Sauvegarder le répertoire marketplace
+      command: mv {{ glpi_dir }}/marketplace {{ backup_dir }}/
+
+    - name: Sauvegarder le fichier downstream.php
+      command: mv {{ glpi_dir }}/inc/downstream.php {{ backup_dir }}/
+
+    - name: Déplacer GLPI existant en sauvegarde
+      command: mv {{ glpi_dir }} {{ backup_dir }}/glpi-bkp-{{ ansible_date_time.date }}
+
+    - name: Télécharger GLPI version {{ glpi_version }}
+      get_url:
+        url: "https://github.com/glpi-project/glpi/releases/download/{{ glpi_version }}/glpi-{{ glpi_version }}.tgz"
+        dest: "{{ web_root }}/glpi-{{ glpi_version }}.tgz"
+
+    - name: Décompresser l'archive
+      unarchive:
+        src: "{{ web_root }}/glpi-{{ glpi_version }}.tgz"
+        dest: "{{ web_root }}"
+        remote_src: yes
+
+    - name: Supprimer l'archive après extraction
+      file:
+        path: "{{ web_root }}/glpi-{{ glpi_version }}.tgz"
+        state: absent
+
+    - name: Nettoyer les anciens dossiers par défaut
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ glpi_dir }}/files"
+        - "{{ glpi_dir }}/plugins"
+        - "{{ glpi_dir }}/marketplace"
+        - "{{ glpi_dir }}/config"
+
+    - name: Restaurer les plugins
+      copy:
+        src: "{{ backup_dir }}/plugins"
+        dest: "{{ glpi_dir }}/"
+        remote_src: yes
+
+    - name: Restaurer marketplace
+      copy:
+        src: "{{ backup_dir }}/marketplace"
+        dest: "{{ glpi_dir }}/"
+        remote_src: yes
+
+    - name: Restaurer downstream.php
+      copy:
+        src: "{{ backup_dir }}/downstream.php"
+        dest: "{{ glpi_dir }}/inc/"
+        remote_src: yes
+
+    - name: Attribuer les droits à Apache sur plugins/marketplace
+      file:
+        path: "{{ item }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+        mode: '0764'
+      loop:
+        - "{{ glpi_dir }}/plugins"
+        - "{{ glpi_dir }}/marketplace"
+
+    - name: Redémarrer Apache
+      service:
+        name: apache2
+        state: restarted
