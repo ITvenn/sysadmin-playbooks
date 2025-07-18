@@ -1,0 +1,183 @@
+---
+- name: Installation de GLPI avec Apache, PHP et MariaDB
+  hosts: glpi_servers
+  become: yes
+  vars:
+    glpi_version: "X.X.X"  # à changer avec la version souhaitée
+    ip_server: "X.X.X.X" # à changer avec l'IP du serveur
+    db_root_password: "votre_mot_de_passe" # à changer avec le mot de passe souhaité
+  tasks:
+    - name: Mise à jour des paquets
+      apt:
+        update_cache: yes
+
+    - name: Installation Apache
+      apt:
+        name: apache2
+        state: present
+
+    - name: Supprimer les configurations par défaut d'Apache
+      file:
+        path: "/etc/apache2/sites-{{ item }}"
+        state: absent
+      loop:
+        - enabled/000-default.conf
+        - available/000-default.conf
+
+    - name: Déployer la configuration Apache pour GLPI
+      copy:
+        dest: /etc/apache2/sites-available/000-default.conf
+        content: |
+          <VirtualHost *:80>
+              ServerAlias {{ ip_server }}
+              DocumentRoot /var/www/html/glpi/public
+              ErrorLog ${APACHE_LOG_DIR}/error.log
+              CustomLog ${APACHE_LOG_DIR}/access.log combined
+              <Directory /var/www/html/glpi/public>
+                  Require all granted
+                  RewriteEngine On
+                  RewriteCond %{REQUEST_FILENAME} !-f
+                  RewriteRule ^(.*)$ index.php [QSA,L]
+              </Directory>
+              <FilesMatch \.php$>
+                  SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost/"
+              </FilesMatch>
+          </VirtualHost>
+
+    - name: Activer la configuration Apache
+      file:
+        src: /etc/apache2/sites-available/000-default.conf
+        dest: /etc/apache2/sites-enabled/000-default.conf
+        state: link
+        force: yes
+
+    - name: Installer PHP et dépendances
+      apt:
+        name:
+          - php
+          - php8.2-fpm
+          - php-xml
+          - php-common
+          - php-json
+          - php-mysql
+          - php-mbstring
+          - php-curl
+          - php-gd
+          - php-intl
+          - php-zip
+          - php-bz2
+          - php-imap
+          - php-apcu
+        state: present
+
+    - name: Installer php-ldap (optionnel)
+      apt:
+        name: php-ldap
+        state: present
+      when: "'ldap' in group_names"
+
+    - name: Installer MariaDB
+      apt:
+        name: mariadb-server
+        state: present
+
+    - name: Configuration de MariaDB root + création BDD
+      mysql_user:
+        login_user: root
+        login_password: ""
+        name: root
+        host_all: yes
+        password: "{{ db_root_password }}"
+        state: present
+
+    - name: Création base de données glpi
+      mysql_db:
+        name: db_glpi
+        state: present
+        login_user: root
+        login_password: "{{ db_root_password }}"
+
+    - name: Télécharger GLPI
+      get_url:
+        url: "https://github.com/glpi-project/glpi/releases/download/{{ glpi_version }}/glpi-{{ glpi_version }}.tgz"
+        dest: "/tmp/glpi-{{ glpi_version }}.tgz"
+
+    - name: Décompresser GLPI
+      unarchive:
+        src: "/tmp/glpi-{{ glpi_version }}.tgz"
+        dest: /var/www/html
+        remote_src: yes
+
+    - name: Définir les permissions GLPI
+      file:
+        path: "{{ item.path }}"
+        owner: www-data
+        group: www-data
+        mode: "{{ item.mode }}"
+        recurse: yes
+      loop:
+        - { path: /var/www/html/glpi, mode: '0755' }
+        - { path: /var/www/html/glpi/plugins, mode: '0764' }
+        - { path: /var/www/html/glpi/marketplace, mode: '0764' }
+
+    - name: Créer /etc/glpi
+      file:
+        path: /etc/glpi
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Déplacer config GLPI vers /etc/glpi
+      command: mv /var/www/html/glpi/config /etc/glpi
+      args:
+        creates: /etc/glpi/config
+
+    - name: Créer /var/lib/glpi et déplacer les fichiers
+      command: mv /var/www/html/glpi/files /var/lib/glpi
+      args:
+        creates: /var/lib/glpi/files
+
+    - name: Créer /var/log/glpi
+      file:
+        path: /var/log/glpi
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer downstream.php
+      copy:
+        dest: /var/www/html/glpi/inc/downstream.php
+        content: |
+          <?php
+          define('GLPI_CONFIG_DIR', '/etc/glpi/');
+          if (file_exists(GLPI_CONFIG_DIR . '/local_define.php')) {
+              require_once GLPI_CONFIG_DIR . '/local_define.php';
+          }
+
+    - name: Créer local_define.php
+      copy:
+        dest: /etc/glpi/local_define.php
+        content: |
+          <?php
+          define('GLPI_VAR_DIR', '/var/lib/glpi/files');
+          define('GLPI_LOG_DIR', '/var/log/glpi');
+
+    - name: Activer modules Apache nécessaires
+      shell: |
+        a2enmod rewrite
+        a2enmod proxy_fcgi setenvif
+        a2enconf php8.2-fpm
+
+    - name: Sécuriser PHP - activer session.cookie_httponly
+      lineinfile:
+        path: /etc/php/8.2/fpm/php.ini
+        regexp: '^session.cookie_httponly'
+        line: 'session.cookie_httponly = on'
+
+    - name: Redémarrer Apache et PHP-FPM
+      service:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - apache2
+        - php8.2-fpm

@@ -1,0 +1,19 @@
+---
+- name: Déployer la configuration sshd personnalisée
+  hosts: undefined_group
+  become: yes
+  tasks:
+    - name: Copier le fichier sshd_config personnalisé
+      copy:
+        src: sshd_config
+        dest: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Redémarrer le service SSH
+
+  handlers:
+    - name: Redémarrer le service SSH
+      systemd:
+        name: ssh
+        state: restarted
