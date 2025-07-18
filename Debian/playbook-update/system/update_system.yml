@@ -1,0 +1,30 @@
+---
+- name: Mise à jour sécurisée du système Debian
+  hosts: undefined_group  # Groupe volontairement inexistant
+  become: yes
+  tasks:
+    - name: Mettre à jour le cache des paquets
+      apt:
+        update_cache: yes
+
+    - name: Simuler la mise à jour complète sans appliquer
+      apt:
+        upgrade: dist
+        simulate: yes
+      register: simulation_result
+
+    - name: Afficher les paquets à mettre à jour
+      debug:
+        var: simulation_result
+
+    - name: Appliquer la mise à jour si nécessaire
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+      when: simulation_result.changed
+
+    - name: Redémarrer le système si nécessaire
+      reboot:
+        reboot_timeout: 300
+      when: ansible_facts['needs_reboot'] | default(false)
