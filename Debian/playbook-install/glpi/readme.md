@@ -45,7 +45,7 @@ Certaines variables doivent être spécifiées au lancement du playbook :
 ## 📦 Lancement du playbook
 
 ```bash
-ansible-playbook -i inventory.ini install_glpi.yml -l glpi_servers
+ansible-playbook -i inventory.ini install_glpi.yml -l glpi_servers --ask-pass
 ```
 Remplacez <target> par le nom ou l’adresse IP de votre serveur cible. Le , à la fin est obligatoire si vous utilisez un inventaire en ligne de commande.
 
