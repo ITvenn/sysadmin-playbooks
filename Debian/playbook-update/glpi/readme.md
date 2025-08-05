@@ -42,7 +42,7 @@ glpi_upgrade/
 ### 2. Lancez le playbook
 
 ```bash
-ansible-playbook -i inventory.ini update_glpi.yml -e "glpi_version=10.0.10 db_name=glpidb db_password=motdepasse"
+ansible-playbook -i inventory.ini update_glpi.yml -e "glpi_version=10.0.10 db_name=glpidb db_password=motdepasse" --ask-pass
 ```
 
 > Remplacez `glpi_version`, `db_name` et `db_password` par vos valeurs.
