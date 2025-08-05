@@ -71,10 +71,12 @@
         state: present
 
     - name: Installer php-ldap (optionnel)
+      vars:
+        install_php_ldap: false   # <-- Mettre à true pour installer
       apt:
         name: php-ldap
         state: present
-      when: "'ldap' in group_names"
+      when: install_php_ldap | bool
 
     - name: Installer MariaDB
       apt:
