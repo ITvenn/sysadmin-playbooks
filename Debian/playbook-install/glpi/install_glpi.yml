@@ -1,11 +1,11 @@
 ---
 - name: Installation de GLPI avec Apache, PHP et MariaDB
-  hosts: glpi_servers
+  hosts: linuxservers
   become: yes
   vars:
     glpi_version: "X.X.X"  # à changer avec la version souhaitée
     ip_server: "X.X.X.X" # à changer avec l'IP du serveur
-    db_root_password: "votre_mot_de_passe" # à changer avec le mot de passe souhaité
+    db_root_password: "************" # à changer avec le mot de passe souhaité
   tasks:
     - name: Mise à jour des paquets
       apt:
@@ -81,21 +81,54 @@
         name: mariadb-server
         state: present
 
-    - name: Configuration de MariaDB root + création BDD
+    - name: S'assurer que le service MariaDB est démarré et activé
+      systemd:
+        name: mariadb
+        state: started
+        enabled: yes
+
+    - name: Installer les dépendances Python MySQL pour Python 3
+      apt:
+        name:
+          - python3-pip
+          - python3-dev
+          - default-libmysqlclient-dev
+          - build-essential
+          - python3-pymysql
+        state: present
+      become: yes
+
+    - name: Modifier l'authentification root MySQL pour utiliser un mot de passe
       mysql_user:
         login_user: root
-        login_password: ""
+        login_unix_socket: /var/run/mysqld/mysqld.sock
         name: root
-        host_all: yes
+        host: localhost
         password: "{{ db_root_password }}"
+        plugin: mysql_native_password
         state: present
 
-    - name: Création base de données glpi
-      mysql_db:
-        name: db_glpi
-        state: present
+    - name: Supprimer les utilisateurs anonymes (sécurité)
+      mysql_user:
         login_user: root
         login_password: "{{ db_root_password }}"
+        name: ''
+        host_all: yes
+        state: absent
+
+    - name: Supprimer la base de test (sécurité)
+      mysql_db:
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        name: test
+        state: absent
+
+    - name: création BDD
+      mysql_user:
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        name: db_glpi
+        state: present
 
     - name: Télécharger GLPI
       get_url:
@@ -107,18 +140,6 @@
         src: "/tmp/glpi-{{ glpi_version }}.tgz"
         dest: /var/www/html
         remote_src: yes
-
-    - name: Définir les permissions GLPI
-      file:
-        path: "{{ item.path }}"
-        owner: www-data
-        group: www-data
-        mode: "{{ item.mode }}"
-        recurse: yes
-      loop:
-        - { path: /var/www/html/glpi, mode: '0755' }
-        - { path: /var/www/html/glpi/plugins, mode: '0764' }
-        - { path: /var/www/html/glpi/marketplace, mode: '0764' }
 
     - name: Créer /etc/glpi
       file:
@@ -132,10 +153,94 @@
       args:
         creates: /etc/glpi/config
 
-    - name: Créer /var/lib/glpi et déplacer les fichiers
-      command: mv /var/www/html/glpi/files /var/lib/glpi
+    - name: Créer /var/lib/glpi
+      file:
+        path: /var/lib/glpi
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files
+      file:
+        path: /var/lib/glpi/files
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: déplacer les fichiers files
+      command: mv /var/www/html/glpi/files /var/lib/glpi/files
       args:
         creates: /var/lib/glpi/files
+
+    - name: Créer /var/lib/glpi/files/_cron
+      file:
+        path: /var/lib/glpi/files/_cron
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files/_dumps
+      file:
+        path: /var/lib/glpi/files/_dumps
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files/_graphs
+      file:
+        path: /var/lib/glpi/files/_graphs
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files/_lock
+      file:
+        path: /var/lib/glpi/files/_lock
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files/_pictures
+      file:
+        path: /var/lib/glpi/files/_pictures
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files/_plugins
+      file:
+        path: /var/lib/glpi/files/_plugins
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files/_rss
+      file:
+        path: /var/lib/glpi/files/_rss
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files/_sessions
+      file:
+        path: /var/lib/glpi/files/_sessions
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files/_tmp
+      file:
+        path: /var/lib/glpi/files/_tmp
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Créer /var/lib/glpi/files/_uploads
+      file:
+        path: /var/lib/glpi/files/_uploads
+        state: directory
+        owner: www-data
+        group: www-data
 
     - name: Créer /var/log/glpi
       file:
@@ -161,6 +266,19 @@
           <?php
           define('GLPI_VAR_DIR', '/var/lib/glpi/files');
           define('GLPI_LOG_DIR', '/var/log/glpi');
+
+    - name: Définir les permissions GLPI
+      file:
+        path: "{{ item.path }}"
+        owner: www-data
+        group: www-data
+        mode: "{{ item.mode }}"
+        recurse: yes
+      loop:
+        - { path: /var/www/html/glpi, mode: '0755' }
+        - { path: /var/www/html/glpi/plugins, mode: '0764' }
+        - { path: /var/www/html/glpi/marketplace, mode: '0764' }
+        - { path: /var/lib/glpi/files, mode: '0764' }
 
     - name: Activer modules Apache nécessaires
       shell: |
