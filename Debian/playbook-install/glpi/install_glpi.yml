@@ -3,9 +3,9 @@
   hosts: linuxservers
   become: yes
   vars:
-    glpi_version: "X.X.X"  # à changer avec la version souhaitée
-    ip_server: "X.X.X.X" # à changer avec l'IP du serveur
-    db_root_password: "************" # à changer avec le mot de passe souhaité
+    glpi_version: ""  # À définir via extra-vars
+    ip_server: "" # À définir via extra-vars
+    db_root_password: "" # À définir via extra-vars
   tasks:
     - name: Mise à jour des paquets
       apt:
@@ -72,7 +72,7 @@
 
     - name: Installer php-ldap (optionnel)
       vars:
-        install_php_ldap: false   # <-- Mettre à true pour installer
+        install_php_ldap: ""   # À définir via extra-vars (true or false)
       apt:
         name: php-ldap
         state: present
